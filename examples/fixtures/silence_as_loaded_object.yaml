@@ -1,0 +1,19 @@
+sentence: Their silence means they agree.
+objects:
+operators:
+  - compression
+  - prediction
+collapsed_variables:
+  - silence = agreement
+hidden_variables:
+  - fear
+  - uncertainty
+  - power_difference
+  - conflict_avoidance
+  - missing_channel
+complements:
+  - signal_preservation
+  - adaptation
+competing_implementations:
+warnings:
+  - complement not represented

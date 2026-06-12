@@ -1,0 +1,19 @@
+sentence: Good engineers know heap internals.
+objects:
+operators:
+  - compression
+  - prediction
+collapsed_variables:
+  - trivia_knowledge = engineering_value
+hidden_variables:
+  - judgment
+  - debugging
+  - system_modeling
+  - AI_navigation
+  - curiosity
+complements:
+  - signal_preservation
+  - adaptation
+competing_implementations:
+warnings:
+  - complement not represented

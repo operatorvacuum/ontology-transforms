@@ -1,0 +1,298 @@
+entries:
+  - name: compression
+    type: operator
+    description: Reduces many variables into a smaller representation.
+    complements:
+      - signal_preservation
+    benefits:
+      - lower scheduler load
+      - faster coordination
+    costs:
+      - suppresses variance
+      - imports assumptions
+    suppressed_variables:
+      - local context
+      - variance
+    failure_modes:
+      - compression promoted to reality
+    aliases:
+      - simplify
+      - label
+
+  - name: prediction
+    type: operator
+    description: Reduces uncertainty by projecting expected future states.
+    complements:
+      - adaptation
+      - signal_preservation
+    benefits:
+      - planning stability
+      - lower uncertainty
+    costs:
+      - premature closure
+      - stale model lock-in
+
+  - name: representation
+    type: operator
+    description: Encodes a thing into a model, symbol, label, or interface.
+    complements:
+      - signal_preservation
+    benefits:
+      - portable meaning
+      - shared reference
+    costs:
+      - map mistaken for territory
+
+  - name: coordination
+    type: operator
+    description: Aligns multiple agents, actions, or expectations.
+    complements:
+      - signal_preservation
+      - exit
+    benefits:
+      - lower conflict overhead
+      - faster joint action
+    costs:
+      - local variance suppression
+      - pressure toward conformity
+    aliases:
+      - harmony
+      - alignment
+
+  - name: coupling
+    type: operator
+    description: Increases dependency between components or agents.
+    complements:
+      - exit
+      - adaptation
+    benefits:
+      - stronger synchronization
+      - mutual leverage
+    costs:
+      - fragility
+      - autonomy loss
+
+  - name: search
+    type: operator
+    description: Explores possible implementations, states, or explanations.
+    complements:
+      - caching
+      - prediction
+    benefits:
+      - option discovery
+      - error correction
+    costs:
+      - time cost
+      - attention cost
+
+  - name: exit
+    type: operator
+    description: Preserves the ability to leave, decouple, or choose another path.
+    complements:
+      - coordination
+      - coupling
+    benefits:
+      - optionality
+      - coercion resistance
+    costs:
+      - weaker lock-in
+      - less guaranteed continuity
+
+  - name: adaptation
+    type: operator
+    description: Updates behavior or representation in response to new signal.
+    complements:
+      - caching
+      - prediction
+    benefits:
+      - resilience
+      - local fit
+    costs:
+      - instability
+      - coordination overhead
+
+  - name: caching
+    type: operator
+    description: Stores prior work so future operations become cheaper.
+    complements:
+      - adaptation
+    benefits:
+      - speed
+      - reduced repeated search
+    costs:
+      - stale assumptions
+      - path dependence
+
+  - name: signal_preservation
+    type: complement
+    description: Keeps variance, dissent, context, and error signals visible.
+    complements:
+      - compression
+      - coordination
+    benefits:
+      - prevents information loss
+      - improves adaptation
+    costs:
+      - higher cognitive load
+      - slower consensus
+    aliases:
+      - signal preservation
+      - dissent
+      - variance
+
+  - name: implementation_expansion
+    type: transform
+    description: Expands compressed objects into multiple possible implementations.
+    implements:
+      - search
+
+  - name: complement_scan
+    type: transform
+    description: Finds complements made necessary by selected operators.
+    implements:
+      - signal_preservation
+
+  - name: assumption_extraction
+    type: transform
+    description: Names assumptions imported by a compression.
+    implements:
+      - compression
+
+  - name: operator_graph_extraction
+    type: transform
+    description: Converts a sentence into object, operator, complement, and transform edges.
+    implements:
+      - representation
+
+  - name: identity
+    type: object
+    description: A compressed representation used for self, role, group, or category coordination.
+    implements:
+      - compression
+      - coordination
+    benefits:
+      - lower scheduler load
+      - faster coordination
+    costs:
+      - suppresses variance
+      - imports assumptions
+    suppressed_variables:
+      - individual differences
+      - local context
+      - temporal change
+    complements:
+      - signal_preservation
+    competing_implementations:
+      - role
+      - current preference
+      - relationship-specific behavior
+      - history
+      - chosen commitment
+    common_compressions:
+      - I am X
+      - we are X
+    failure_modes:
+      - compression promoted to reality
+      - role mistaken for whole person
+    examples:
+      - I am X.
+    transforms:
+      - assumption_extraction
+      - complement_scan
+      - operator_graph_extraction
+    aliases:
+      - self
+      - label
+    patterns:
+      - \bi am\b
+      - \bwe are\b
+
+  - name: belonging
+    type: object
+    description: A compressed object for recurring recognition, inclusion, and mutual orientation.
+    implements:
+      - coordination
+      - coupling
+      - prediction
+    benefits:
+      - lower social search cost
+      - continuity
+      - shared expectation
+    costs:
+      - obligation load
+      - possible conformity pressure
+    suppressed_variables:
+      - desired frequency
+      - symmetry of attachment
+      - context of recognition
+      - degree of obligation
+    complements:
+      - exit
+      - signal_preservation
+    competing_implementations:
+      - friendship
+      - recurring contact
+      - shared mission
+      - ritual
+      - family
+    common_compressions:
+      - I need belonging
+      - I want to belong
+    failure_modes:
+      - belonging treated as a single object
+      - attachment substituted for fit
+    examples:
+      - I need belonging.
+    transforms:
+      - implementation_expansion
+      - assumption_extraction
+      - complement_scan
+      - operator_graph_extraction
+    aliases:
+      - belong
+      - community
+
+  - name: harmony
+    type: object
+    description: A compressed object for reduced conflict and smoother coordination.
+    implements:
+      - coordination
+      - prediction
+      - compression
+    benefits:
+      - lower conflict overhead
+      - reduced prediction burden
+      - easier group action
+    costs:
+      - conflict suppression
+      - missing dissent
+      - false consensus
+    suppressed_variables:
+      - unresolved disagreement
+      - power difference
+      - private dissent
+      - cost of silence
+    complements:
+      - signal_preservation
+      - exit
+    competing_implementations:
+      - conflict suppression
+      - conflict resolution
+      - prediction reduction
+      - explicit negotiation
+    common_compressions:
+      - Harmony is important
+      - keep the peace
+    failure_modes:
+      - complement not represented
+      - silence mistaken for agreement
+    examples:
+      - Harmony is important.
+    transforms:
+      - implementation_expansion
+      - complement_scan
+      - assumption_extraction
+      - operator_graph_extraction
+    aliases:
+      - peace
+      - agreement

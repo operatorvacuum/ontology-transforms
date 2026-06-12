@@ -1,0 +1,18 @@
+sentence: College was the best years of my life.
+objects:
+operators:
+  - compression
+  - representation
+collapsed_variables:
+  - remembered_peak = life_value
+hidden_variables:
+  - current_options
+  - nostalgia
+  - comparison_set
+  - agency
+  - time_horizon
+complements:
+  - signal_preservation
+competing_implementations:
+warnings:
+  - complement not represented

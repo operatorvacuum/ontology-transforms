@@ -1,0 +1,21 @@
+sentence: I am a teacher.
+objects:
+  - identity
+operators:
+  - compression
+  - coordination
+collapsed_variables:
+  - identity = behavior
+hidden_variables:
+  - frequency
+  - context
+  - competence
+  - role
+  - obligation
+complements:
+  - signal_preservation
+  - exit
+competing_implementations:
+  - role
+warnings:
+  - complement not represented
