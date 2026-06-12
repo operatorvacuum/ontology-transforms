@@ -1,7 +1,24 @@
 # Ontology Transform Engine
 
-This repo is a small Python engine for decomposing sentences into structured
-transform output:
+This engine treats natural-language statements as compressed operators and
+attempts to recover the hidden variables, assumptions, complements, and
+competing implementations that were collapsed during abstraction.
+
+Most statements compress many variables into a single object, such as
+`harmony`, `belonging`, `identity`, or `good engineer`. The Ontology Transform
+Engine reconstructs the hidden operator graph behind the statement: what
+variables were collapsed, what assumptions became implicit, what competing
+implementations exist, and what information disappeared during compression.
+
+The core flow is:
+
+```text
+claim
+-> find what got compressed away
+-> recover lost degrees of freedom
+```
+
+Structured output stays boring:
 
 ```json
 {
@@ -17,9 +34,8 @@ transform output:
 }
 ```
 
-Objects are inputs to transforms, not final explanations. The useful output is
-the operator graph, hidden variables, collapsed variables, complements, and
-competing implementations.
+Objects are inputs to transforms, not final explanations. Ontology is the
+substrate; compression recovery is the purpose.
 
 ## Quick Start
 
@@ -33,148 +49,47 @@ python -m ontology.cli graph "I am a teacher."
 python examples/run_examples.py
 ```
 
-## Example Outputs
+## Examples
 
-### Collapsed Hiring Signal
+The engine does not decide whether a statement is good or bad. It detects when a
+statement has collapsed a multidimensional process into a single object, then
+returns the missing dimensions.
 
-```powershell
-python -m ontology.cli expand "Good engineers know heap internals."
-```
-
-```json
-{
-  "sentence": "Good engineers know heap internals.",
-  "objects": [],
-  "operators": ["compression", "prediction"],
-  "compressions": [],
-  "collapsed_variables": [
-    {
-      "collapse": "trivia_knowledge = engineering_value",
-      "missing_variables": [
-        "judgment",
-        "debugging",
-        "system_modeling",
-        "AI_navigation",
-        "curiosity"
-      ],
-      "evidence": "trivia_hiring"
-    }
-  ],
-  "hidden_variables": [
-    "judgment",
-    "debugging",
-    "system_modeling",
-    "AI_navigation",
-    "curiosity"
-  ],
-  "complements": ["signal_preservation", "adaptation"],
-  "competing_implementations": [],
-  "warnings": ["complement not represented"]
-}
-```
-
-### Harmony Collapse
+### Harmony
 
 ```powershell
 python -m ontology.cli expand "Harmony is important."
 ```
 
-```json
-{
-  "sentence": "Harmony is important.",
-  "objects": ["harmony"],
-  "operators": ["coordination", "prediction", "compression"],
-  "compressions": ["Harmony is important", "keep the peace"],
-  "collapsed_variables": [
-    {
-      "collapse": "harmony = truth",
-      "missing_variables": [
-        "contradiction",
-        "signal_preservation",
-        "disagreement_as_information"
-      ],
-      "evidence": "harmony_truth_collapse"
-    },
-    {
-      "collapse": "harmony = health",
-      "missing_variables": [
-        "contradiction",
-        "signal_preservation",
-        "disagreement_as_information"
-      ],
-      "evidence": "harmony_truth_collapse"
-    }
-  ],
-  "hidden_variables": [
-    "harmony_is_single_object",
-    "coordination_can_be_obtained_without_signal_loss",
-    "unresolved disagreement",
-    "power difference",
-    "private dissent",
-    "cost of silence",
-    "contradiction",
-    "signal_preservation",
-    "disagreement_as_information"
-  ],
-  "complements": ["signal_preservation", "exit", "adaptation"],
-  "competing_implementations": [
-    "conflict suppression",
-    "conflict resolution",
-    "prediction reduction",
-    "explicit negotiation"
-  ],
-  "warnings": ["complement not represented"]
-}
+May recover:
+
+- collapsed variables: `harmony = truth`, `harmony = health`
+- hidden variables: `conflict suppression`, `conflict resolution`, `power asymmetry`, `private dissent`
+- missing complements: `signal_preservation`, `exit`, `adaptation`
+
+### Good Engineer
+
+```powershell
+python -m ontology.cli expand "Good engineers know heap internals."
 ```
 
-### Identity Compression
+May recover:
+
+- collapsed variable: `trivia_knowledge = engineering_value`
+- hidden variables: `debugging`, `judgment`, `system_modeling`, `adaptation`, `AI_navigation`, `curiosity`
+- missing complements: `signal_preservation`, `adaptation`
+
+### Identity
 
 ```powershell
 python -m ontology.cli expand "I am a teacher."
 ```
 
-```json
-{
-  "sentence": "I am a teacher.",
-  "objects": ["identity"],
-  "operators": ["compression", "coordination"],
-  "compressions": ["I am X", "we are X"],
-  "collapsed_variables": [
-    {
-      "collapse": "identity = behavior",
-      "missing_variables": [
-        "frequency",
-        "context",
-        "competence",
-        "role",
-        "obligation"
-      ],
-      "evidence": "identity_behavior_collapse"
-    }
-  ],
-  "hidden_variables": [
-    "identity_is_single_object",
-    "compressed_label_is_real_self",
-    "individual differences",
-    "local context",
-    "temporal change",
-    "frequency",
-    "context",
-    "competence",
-    "role",
-    "obligation"
-  ],
-  "complements": ["signal_preservation", "exit"],
-  "competing_implementations": [
-    "role",
-    "current preference",
-    "relationship-specific behavior",
-    "history",
-    "chosen commitment"
-  ],
-  "warnings": ["complement not represented"]
-}
-```
+May recover:
+
+- collapsed variable: `identity = behavior`
+- hidden variables: `role`, `frequency`, `context`, `obligation`, `history`, `competence`
+- competing implementations: `role`, `current preference`, `relationship-specific behavior`, `history`, `chosen commitment`
 
 ## API
 
