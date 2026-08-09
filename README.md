@@ -1,5 +1,11 @@
 # Semantic Factorization Engine
 
+For AI-assisted development, start with:
+
+- [`docs/AI_CONTEXT.md`](docs/AI_CONTEXT.md)
+- [`docs/SEMANTIC_INVARIANTS.md`](docs/SEMANTIC_INVARIANTS.md)
+- [`docs/NEXT.md`](docs/NEXT.md)
+
 This repository is a small compiler experiment for recovering candidate relational
 structure from compressed natural-language handles. It does not assign words a
 single canonical decomposition.
