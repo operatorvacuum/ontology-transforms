@@ -7,8 +7,10 @@ from ontology.recomposition import (
     ItemId,
     OperationId,
     ProjectionDecision,
+    RecompositionOperation,
     RecompositionGuard,
     RecompositionOutcome,
+    render_recomposition_decision,
 )
 from ontology.schema import (
     Branch,
@@ -41,9 +43,11 @@ __all__ = [
     "Projection",
     "ProjectionDecision",
     "ProjectionLoss",
+    "RecompositionOperation",
     "RecompositionGuard",
     "RecompositionOutcome",
     "SemanticCompiler",
     "FalsificationFinding",
+    "render_recomposition_decision",
     "render_projection",
 ]

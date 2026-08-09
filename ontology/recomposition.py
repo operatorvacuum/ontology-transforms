@@ -25,6 +25,7 @@ class GuardPredicate(str, Enum):
     ERASES_PROVENANCE_DISAGREEMENT = "erases_provenance_disagreement"
     DROPS_OPERATION_RELEVANT_DIMENSION = "drops_operation_relevant_dimension"
     COMPLETES_FROM_DEFAULT_PRIOR = "completes_from_default_prior"
+    INVALID_BRANCH_SELECTION = "invalid_branch_selection"
 
 
 class RecompositionOutcome(str, Enum):
@@ -49,6 +50,22 @@ class EdgeRequirement:
         if self.qualifiers:
             payload["qualifiers"] = dict(self.qualifiers)
         return payload
+
+
+@dataclass(frozen=True)
+class RecompositionOperation:
+    """Task-local branch selection; never a mutation of the validated graph."""
+
+    id: OperationId
+    selected_branch_ids: tuple[ItemId, ...] = ()
+    provenance_sensitive: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "selected_branch_ids": list(self.selected_branch_ids),
+            "provenance_sensitive": self.provenance_sensitive,
+        }
 
 
 @dataclass(frozen=True)
@@ -127,8 +144,10 @@ class RecompositionGuard:
         "coupling",
         "demands",
         "has_jurisdiction_over",
+        "has_authority_over",
         "identity_coupling",
         "obligation",
+        "obligated_to",
         "recurrence",
         "requires",
         "temporal_after",
@@ -140,13 +159,16 @@ class RecompositionGuard:
         self,
         graph: GraphIR,
         candidate: CandidateRecomposition,
-        operation: OperationId,
+        operation: RecompositionOperation | OperationId,
     ) -> ProjectionDecision:
-        if candidate.operation != operation:
+        operation = _operation_record(operation)
+        if candidate.operation != operation.id:
             raise ValueError(
-                f"Candidate operation {candidate.operation!r} does not match {operation!r}"
+                f"Candidate operation {candidate.operation!r} does not match {operation.id!r}"
             )
-        findings: list[FalsificationFinding] = []
+        findings: list[FalsificationFinding] = list(
+            self._selection_findings(graph, operation)
+        )
         licensed_edge_ids: list[str] = []
         matched_edges: list[Edge] = []
 
@@ -156,7 +178,9 @@ class RecompositionGuard:
             )
             if exact:
                 matched_edges.extend(exact)
-                licensed = tuple(edge for edge in exact if _edge_is_licensed(graph, edge))
+                licensed = tuple(
+                    edge for edge in exact if _edge_is_licensed(graph, edge, operation)
+                )
                 if licensed:
                     licensed_edge_ids.append(licensed[0].id)
                 else:
@@ -164,7 +188,12 @@ class RecompositionGuard:
                         FalsificationFinding(
                             GuardPredicate.REQUIRED_EDGE_UNLICENSED,
                             tuple(edge.id for edge in exact),
-                            "A required edge exists only as an unresolved or unsupported candidate.",
+                            (
+                                f"Required edge {requirement.source} {requirement.relation} "
+                                f"{requirement.target} exists only as an unresolved or "
+                                "unsupported candidate; evaluating its handle does not select "
+                                "its branch."
+                            ),
                         )
                     )
                 continue
@@ -189,7 +218,8 @@ class RecompositionGuard:
             findings.extend(self._strengthening_findings(graph, requirement))
 
         findings.extend(self._branch_findings(graph, matched_edges))
-        findings.extend(self._provenance_findings(matched_edges))
+        if operation.provenance_sensitive:
+            findings.extend(self._provenance_findings(matched_edges))
 
         for blocker in candidate.unresolved_blockers:
             if not _item_exists(graph, blocker):
@@ -200,12 +230,15 @@ class RecompositionGuard:
                         "An unresolved blocker id does not exist in the current graph.",
                     )
                 )
-            elif _item_is_unresolved(graph, blocker):
+            elif _item_is_unresolved(graph, blocker, operation):
                 findings.append(
                     FalsificationFinding(
                         GuardPredicate.UNRESOLVED_BLOCKER,
                         (blocker,),
-                        "The candidate names an unresolved blocker that has not been selected.",
+                        (
+                            f"{_item_label(graph, blocker)} remains unresolved and has not "
+                            "been selected for this operation."
+                        ),
                     )
                 )
 
@@ -223,7 +256,7 @@ class RecompositionGuard:
                 )
             )
         if candidate.omitted_dimensions and not unknown_dimensions and (
-            operation in candidate.unsafe_for or operation not in candidate.safe_for
+            operation.id in candidate.unsafe_for or operation.id not in candidate.safe_for
         ):
             findings.append(
                 FalsificationFinding(
@@ -253,8 +286,9 @@ class RecompositionGuard:
         self,
         graph: GraphIR,
         candidates: tuple[CandidateRecomposition, ...],
-        operation: OperationId,
+        operation: RecompositionOperation | OperationId,
     ) -> ProjectionDecision:
+        operation = _operation_record(operation)
         rejected: list[ProjectionDecision] = []
         for candidate in candidates:
             decision = self.evaluate_candidate(graph, candidate, operation)
@@ -267,10 +301,17 @@ class RecompositionGuard:
             for decision in rejected
             for finding in decision.falsification_findings
         )
+        common_licensed_ids: set[str] = set()
+        if rejected:
+            common_licensed_ids = set(rejected[0].licensed_edge_ids)
+            for decision in rejected[1:]:
+                common_licensed_ids.intersection_update(decision.licensed_edge_ids)
         return ProjectionDecision(
             candidate_id=None,
             outcome=RecompositionOutcome.RETAIN_HIGH_DIMENSIONAL,
-            licensed_edge_ids=(),
+            licensed_edge_ids=tuple(
+                edge.id for edge in graph.edges if edge.id in common_licensed_ids
+            ),
             falsification_findings=tuple(findings),
             retained_edge_ids=tuple(edge.id for edge in graph.edges),
             explanation=(
@@ -317,6 +358,22 @@ class RecompositionGuard:
                     "An affects edge does not license causal direction.",
                 )
             )
+        if requirement.relation == "causes":
+            inverse_requirements = tuple(
+                edge
+                for edge in graph.edges
+                if edge.source == requirement.target
+                and edge.relation == "requires"
+                and edge.target == requirement.source
+            )
+            if inverse_requirements:
+                findings.append(
+                    FalsificationFinding(
+                        GuardPredicate.STRENGTHENS_RELATION,
+                        tuple(edge.id for edge in inverse_requirements),
+                        "A requires edge does not license reversed causal direction.",
+                    )
+                )
         same_relation = tuple(
             edge for edge in same_endpoints if edge.relation == requirement.relation
         )
@@ -362,6 +419,8 @@ class RecompositionGuard:
                 groups.setdefault(branch.group_id, []).append(branch)
         findings: list[FalsificationFinding] = []
         for branches in groups.values():
+            if branches[0].mode != "exclusive":
+                continue
             shared_ids = set(branches[0].edge_ids)
             for branch in branches[1:]:
                 shared_ids.intersection_update(branch.edge_ids)
@@ -376,6 +435,39 @@ class RecompositionGuard:
                         GuardPredicate.MERGES_UNRESOLVED_BRANCHES,
                         used_branches,
                         "The candidate draws from multiple distinct unresolved branches.",
+                    )
+                )
+        return tuple(findings)
+
+    def _selection_findings(
+        self,
+        graph: GraphIR,
+        operation: RecompositionOperation,
+    ) -> tuple[FalsificationFinding, ...]:
+        selected = set(operation.selected_branch_ids)
+        known = {branch.id for branch in graph.branches}
+        findings: list[FalsificationFinding] = []
+        unknown = tuple(branch_id for branch_id in selected if branch_id not in known)
+        if unknown:
+            findings.append(
+                FalsificationFinding(
+                    GuardPredicate.INVALID_BRANCH_SELECTION,
+                    unknown,
+                    "The operation selected branch ids that do not exist in the graph.",
+                )
+            )
+        selected_by_group: dict[str, list[str]] = {}
+        for branch in graph.branches:
+            if branch.id in selected:
+                selected_by_group.setdefault(branch.group_id, []).append(branch.id)
+        for group_id, branch_ids in selected_by_group.items():
+            branches = [branch for branch in graph.branches if branch.group_id == group_id]
+            if branches[0].mode == "exclusive" and len(branch_ids) > 1:
+                findings.append(
+                    FalsificationFinding(
+                        GuardPredicate.INVALID_BRANCH_SELECTION,
+                        tuple(branch_ids),
+                        "The operation selected multiple branches from an exclusive group.",
                     )
                 )
         return tuple(findings)
@@ -398,6 +490,97 @@ class RecompositionGuard:
         )
 
 
+def render_recomposition_decision(
+    graph: GraphIR,
+    operation: RecompositionOperation,
+    decision: ProjectionDecision,
+    candidate: CandidateRecomposition | None = None,
+) -> str:
+    """Render an operation-local decision without rewriting graph status."""
+
+    lines = [
+        "RECOMPOSITION DECISION",
+        f"  operation: {_humanize(operation.id)}",
+        f"  candidate: {candidate.label if candidate else 'none'}",
+        f"  outcome: {decision.outcome.value.upper()}",
+        "",
+        "SELECTED BRANCHES",
+    ]
+    selected = [
+        branch for branch in graph.branches if branch.id in operation.selected_branch_ids
+    ]
+    if selected:
+        for branch in selected:
+            lines.append(f"  - {branch.label}")
+    else:
+        lines.append("  none")
+
+    lines.extend(("", "LICENSED EVIDENCE"))
+    if decision.licensed_edge_ids:
+        for edge_id in decision.licensed_edge_ids:
+            edge = graph.edge(edge_id)
+            qualifiers = dict(edge.qualifiers)
+            qualifier_text = (
+                " (" + ", ".join(f"{key}: {value}" for key, value in qualifiers.items()) + ")"
+                if qualifiers
+                else ""
+            )
+            lines.append(
+                f"  - {graph.node(edge.source).label} --{_humanize(edge.relation)}--> "
+                f"{graph.node(edge.target).label}{qualifier_text}"
+            )
+            selected_for_operation = any(
+                branch.id in operation.selected_branch_ids and edge.id in branch.edge_ids
+                for branch in graph.branches
+            )
+            provenance = _edge_provenance_label(edge)
+            if selected_for_operation:
+                provenance += " · selected for operation"
+            lines.append(f"    [{provenance}]")
+    else:
+        lines.append("  none")
+
+    lines.extend(("", "BLOCKING FINDINGS"))
+    if decision.falsification_findings:
+        for finding in decision.falsification_findings:
+            lines.append(f"  - [{finding.predicate.value}] {finding.message}")
+    else:
+        lines.append("  none")
+
+    lines.extend(("", "RETAINED DISTINCTIONS"))
+    depth_zero_branches = [branch for branch in graph.branches if branch.depth == 0]
+    if depth_zero_branches:
+        for branch in depth_zero_branches:
+            state = (
+                "selected for operation; candidate in graph"
+                if branch.id in operation.selected_branch_ids
+                else f"{branch.status} in graph"
+            )
+            lines.append(f"  - {branch.label} [{state}]")
+    else:
+        lines.append("  - full validated graph retained")
+
+    lines.extend(("", "EXPLANATION", f"  {decision.explanation}"))
+    return "\n".join(lines)
+
+
+def _edge_provenance_label(edge: Edge) -> str:
+    kinds = {item.kind for item in edge.provenance}
+    if edge.status == "asserted" and "source_text" in kinds:
+        return "source assertion"
+    if "model_hypothesis" in kinds:
+        return "model hypothesis"
+    if "catalog_fragment" in kinds:
+        return f"catalog candidate · {edge.status} in graph"
+    if "inference_rule" in kinds:
+        return f"rule candidate · {edge.status} in graph"
+    return f"candidate · {edge.status} in graph"
+
+
+def _humanize(value: str) -> str:
+    return value.replace("_", " ").replace(".", " ")
+
+
 def _edge_matches(edge: Edge, requirement: EdgeRequirement) -> bool:
     if (
         edge.source != requirement.source
@@ -408,21 +591,42 @@ def _edge_matches(edge: Edge, requirement: EdgeRequirement) -> bool:
     return dict(edge.qualifiers) == dict(requirement.qualifiers)
 
 
-def _edge_is_licensed(graph: GraphIR, edge: Edge) -> bool:
+def _edge_is_licensed(
+    graph: GraphIR,
+    edge: Edge,
+    operation: RecompositionOperation,
+) -> bool:
     if edge.status == "asserted":
         return True
     if edge.status == "unsupported":
         return False
     return any(
-        branch.status == "selected" and edge.id in branch.edge_ids
+        branch.id in operation.selected_branch_ids and edge.id in branch.edge_ids
         for branch in graph.branches
     )
 
 
-def _item_is_unresolved(graph: GraphIR, item_id: str) -> bool:
-    return any(branch.id == item_id and branch.status == "unresolved" for branch in graph.branches) or any(
+def _item_is_unresolved(
+    graph: GraphIR,
+    item_id: str,
+    operation: RecompositionOperation,
+) -> bool:
+    return any(
+        branch.id == item_id
+        and branch.status == "unresolved"
+        and branch.id not in operation.selected_branch_ids
+        for branch in graph.branches
+    ) or any(
         edge.id == item_id and edge.status == "unresolved" for edge in graph.edges
     )
+
+
+def _operation_record(
+    operation: RecompositionOperation | OperationId,
+) -> RecompositionOperation:
+    if isinstance(operation, RecompositionOperation):
+        return operation
+    return RecompositionOperation(OperationId(operation))
 
 
 def _item_exists(graph: GraphIR, item_id: str) -> bool:
@@ -431,6 +635,22 @@ def _item_exists(graph: GraphIR, item_id: str) -> bool:
         or any(edge.id == item_id for edge in graph.edges)
         or any(branch.id == item_id for branch in graph.branches)
     )
+
+
+def _item_label(graph: GraphIR, item_id: str) -> str:
+    for branch in graph.branches:
+        if branch.id == item_id:
+            return branch.label
+    for edge in graph.edges:
+        if edge.id == item_id:
+            return (
+                f"{graph.node(edge.source).label} {edge.relation} "
+                f"{graph.node(edge.target).label}"
+            )
+    for node in graph.nodes:
+        if node.id == item_id:
+            return node.label
+    return item_id
 
 
 def _would_intrinsify_judgment(graph: GraphIR, requirement: EdgeRequirement) -> bool:

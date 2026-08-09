@@ -218,12 +218,35 @@ merges, invented equivalence, implementation promotion, relation strengthening,
 qualifier loss, sensitive edges, evaluator/property confusion, provenance
 disagreement, operation-relevant omission, and default-prior completion.
 
+Operations and candidate projections are separate CLI inputs:
+
+```powershell
+python -m ontology.cli "Respect is important." `
+  --operation define_respect `
+  --recompose "respect means deference"
+```
+
+An operation may select an explicit candidate branch without mutating the graph:
+
+```powershell
+python -m ontology.cli "Good engineers know heap internals." `
+  --operation summarize_sentence_meaning `
+  --recompose "the good-engineer evaluator is sensitive to heap-internals knowledge" `
+  --select-branch good.normative_branch
+```
+
+Selection licenses that branch's explicit edges only for the current operation.
+The edges retain their candidate status and provenance; selected does not mean
+asserted. Use `--retain-if-none` without `--recompose` to try the registered
+fixture-scoped proposals and retain the graph when no compact candidate is safe.
+
 ## Project shape
 
 - `ontology/schema.py`: immutable graph IR, provenance, states, and projections.
 - `ontology/compiler.py`: parser, resolver, factorizer, validator, projector, renderer.
-- `ontology/catalog.py`: only the three contextual candidate fragments.
+- `ontology/catalog.py`: contextual candidate fragments for the current fixtures.
 - `ontology/recomposition.py`: optional candidate records and deterministic falsifier.
+- `ontology/recomposition_cases.py`: fixture-scoped proposals used to exercise the guard.
 - `examples/fixtures/*.yaml`: the three approved sentence fixtures.
 - `tests/test_semantic_compiler.py`: relational behavior regressions.
 
