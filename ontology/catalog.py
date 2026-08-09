@@ -213,6 +213,192 @@ VERTICAL_SLICE_FRAGMENTS = (
             ),
         ),
     ),
+    Fragment(
+        id="respect.implementations.v1",
+        trigger="respect",
+        node_labels=(
+            ("accurate_recognition", "accurate recognition"),
+            ("boundary_observance", "boundary observance"),
+            ("politeness", "politeness"),
+            ("deference", "deference"),
+        ),
+        edges=(
+            EdgeTemplate("respect.recognition", "$trigger", "implemented_by", "accurate_recognition"),
+            EdgeTemplate("respect.boundaries", "$trigger", "implemented_by", "boundary_observance"),
+            EdgeTemplate("respect.politeness", "$trigger", "implemented_by", "politeness"),
+            EdgeTemplate("respect.deference", "$trigger", "implemented_by", "deference"),
+        ),
+        branches=(
+            BranchTemplate(
+                "respect.recognition_branch",
+                "respect.implementations",
+                "accurate recognition",
+                ("respect.recognition",),
+            ),
+            BranchTemplate(
+                "respect.boundaries_branch",
+                "respect.implementations",
+                "boundary observance",
+                ("respect.boundaries",),
+            ),
+            BranchTemplate(
+                "respect.politeness_branch",
+                "respect.implementations",
+                "politeness",
+                ("respect.politeness",),
+            ),
+            BranchTemplate(
+                "respect.deference_branch",
+                "respect.implementations",
+                "deference",
+                ("respect.deference",),
+            ),
+        ),
+    ),
+    Fragment(
+        id="healthy_relationship.evaluator_candidates.v1",
+        trigger="healthy-relationship evaluator",
+        node_labels=(
+            ("signal_preservation", "signal preservation"),
+            ("reversibility", "reversibility"),
+        ),
+        edges=(
+            EdgeTemplate(
+                "healthy_relationship.sensitivity.signal",
+                "$trigger",
+                "sensitive_to",
+                "signal_preservation",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "healthy_relationship.sensitivity.reversibility",
+                "$trigger",
+                "sensitive_to",
+                "reversibility",
+                (("necessity", "optional"),),
+            ),
+        ),
+        branches=(
+            BranchTemplate(
+                "healthy_relationship.evaluator_expansion",
+                "healthy_relationship.evaluator_recursive_expansion",
+                "relationship-health evaluator candidates",
+                (
+                    "healthy_relationship.sensitivity.signal",
+                    "healthy_relationship.sensitivity.reversibility",
+                ),
+                depth=1,
+            ),
+        ),
+    ),
+    Fragment(
+        id="relationship.configuration_candidates.v1",
+        trigger="relationship configuration",
+        node_labels=(
+            ("participant_configuration", "participant configuration"),
+            ("scope", "scope"),
+        ),
+        edges=(
+            EdgeTemplate(
+                "relationship.configuration.participants",
+                "$trigger",
+                "factors_into",
+                "participant_configuration",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "relationship.configuration.scope",
+                "$trigger",
+                "factors_into",
+                "scope",
+                (("necessity", "optional"),),
+            ),
+        ),
+        branches=(
+            BranchTemplate(
+                "relationship.configuration_expansion",
+                "relationship.configuration_recursive_expansion",
+                "relationship configuration candidates",
+                (
+                    "relationship.configuration.participants",
+                    "relationship.configuration.scope",
+                ),
+                depth=1,
+            ),
+        ),
+    ),
+    Fragment(
+        id="good_parent.evaluator_candidates.v1",
+        trigger="good-parent evaluator",
+        node_labels=(
+            ("consistency", "consistency"),
+            ("proportionality", "proportionality"),
+        ),
+        edges=(
+            EdgeTemplate(
+                "good_parent.sensitivity.consistency",
+                "$trigger",
+                "sensitive_to",
+                "consistency",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "good_parent.sensitivity.proportionality",
+                "$trigger",
+                "sensitive_to",
+                "proportionality",
+                (("necessity", "optional"),),
+            ),
+        ),
+        branches=(
+            BranchTemplate(
+                "good_parent.evaluator_expansion",
+                "good_parent.evaluator_recursive_expansion",
+                "good-parent evaluator candidates",
+                (
+                    "good_parent.sensitivity.consistency",
+                    "good_parent.sensitivity.proportionality",
+                ),
+                depth=1,
+            ),
+        ),
+    ),
+    Fragment(
+        id="parent.configuration_candidates.v1",
+        trigger="parent configuration",
+        node_labels=(
+            ("role_context", "role context"),
+            ("household_context", "household context"),
+        ),
+        edges=(
+            EdgeTemplate(
+                "parent.configuration.role_context",
+                "$trigger",
+                "factors_into",
+                "role_context",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "parent.configuration.household_context",
+                "$trigger",
+                "factors_into",
+                "household_context",
+                (("necessity", "optional"),),
+            ),
+        ),
+        branches=(
+            BranchTemplate(
+                "parent.configuration_expansion",
+                "parent.configuration_recursive_expansion",
+                "parent configuration candidates",
+                (
+                    "parent.configuration.role_context",
+                    "parent.configuration.household_context",
+                ),
+                depth=1,
+            ),
+        ),
+    ),
 )
 
 

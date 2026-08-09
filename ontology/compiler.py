@@ -73,6 +73,10 @@ class SemanticCompiler:
             "factor": {
                 "needs",
                 "knows",
+                "set",
+                "requires",
+                "has_agent",
+                "has_target",
                 "factors_into",
                 "uses_evaluator",
                 "evaluates",
@@ -88,6 +92,10 @@ class SemanticCompiler:
                 "yields",
             },
             "compression_loss": {
+                "set",
+                "requires",
+                "has_agent",
+                "has_target",
                 "factors_into",
                 "implemented_by",
                 "affects",
@@ -244,6 +252,31 @@ class SemanticCompiler:
                     unsafe_for=unsafe_by_role["recursive candidate expansion"],
                 )
             )
+        recursive_branch_ids = {
+            branch.id for branch in graph.branches if branch.depth > depth
+        }
+        for branch in graph.branches:
+            if branch.id in recursive_branch_ids:
+                continue
+            if any(edge_id in kept_edge_ids for edge_id in branch.edge_ids):
+                continue
+            branch_edges = tuple(graph.edge(edge_id) for edge_id in branch.edge_ids)
+            role = (
+                _semantic_role(branch_edges[0].relation, branch_edges[0].status)
+                if branch_edges
+                else "candidate interpretation"
+            )
+            losses.append(
+                ProjectionLoss(
+                    action="omitted",
+                    item_ids=(branch.id,),
+                    description=f"candidate branch {branch.label}",
+                    semantic_role=role,
+                    reason=reason_by_role[role],
+                    safe_for=safe_for,
+                    unsafe_for=unsafe_by_role[role],
+                )
+            )
         for edge in graph.edges:
             if edge.id in kept_edge_ids or edge.id in recursive_edge_ids:
                 continue
@@ -283,7 +316,14 @@ class SemanticCompiler:
         return tuple(losses)
 
     def _parse(self, sentence: str) -> GraphIR:
-        for parser in (self._parse_need, self._parse_importance, self._parse_good_group):
+        for parser in (
+            self._parse_need,
+            self._parse_importance,
+            self._parse_evaluated_category_requirement,
+            self._parse_role_should_action,
+            self._parse_good_group,
+            self._parse_good_group_action,
+        ):
             graph = parser(sentence)
             if graph is not None:
                 return graph
@@ -353,6 +393,102 @@ class SemanticCompiler:
             ),
         )
 
+    def _parse_evaluated_category_requirement(self, sentence: str) -> GraphIR | None:
+        match = re.fullmatch(
+            r"\s*(?P<evaluator>[A-Za-z]+)\s+(?P<category>[A-Za-z]+)\s+"
+            r"require\s+(?P<object>[A-Za-z][\w -]*?)[.!?]?\s*",
+            sentence,
+            re.IGNORECASE,
+        )
+        if not match:
+            return None
+        category = _singular(match.group("category"))
+        lexical_handle = _slug(f"{match.group('evaluator')} {match.group('category')}")
+        object_id = _slug(match.group("object"))
+        evaluator_id = f"{_slug(match.group('evaluator'))}_{category}_evaluator"
+        configuration_id = f"{category}_configuration"
+        evidence = (_source_evidence(sentence, match.span()),)
+        return GraphIR(
+            nodes=(
+                Node(
+                    lexical_handle,
+                    f"{match.group('evaluator').lower()} {match.group('category').lower()}",
+                ),
+                Node(object_id, match.group("object").lower()),
+                Node(evaluator_id, f"{match.group('evaluator').lower()}-{category} evaluator"),
+                Node(configuration_id, f"{category} configuration"),
+            ),
+            edges=(
+                Edge(
+                    "claim.evaluated_category_requires",
+                    lexical_handle,
+                    "requires",
+                    object_id,
+                    "asserted",
+                    evidence,
+                    (("modality", "generic"),),
+                ),
+            ),
+        )
+
+    def _parse_role_should_action(self, sentence: str) -> GraphIR | None:
+        match = re.fullmatch(
+            r"\s*(?:a|an)\s+(?P<role>[A-Za-z]+)\s+should\s+"
+            r"(?P<action>[A-Za-z]+)\s+(?P<target>you)[.!?]?\s*",
+            sentence,
+            re.IGNORECASE,
+        )
+        if not match:
+            return None
+        role_id = f"{_slug(match.group('role'))}_role"
+        action_id = f"{_slug(match.group('action'))}_action"
+        target_id = "addressee"
+        evidence = (_source_evidence(sentence, match.span()),)
+        return GraphIR(
+            nodes=(
+                Node(role_id, f"{match.group('role').lower()} role"),
+                Node(action_id, f"{match.group('action').lower()} action"),
+                Node(target_id, "addressee"),
+                Node("should_evaluator", "should evaluator"),
+                Node("should_evaluation", "should evaluation"),
+                Node("positive_normative_evaluation", "positive normative evaluation"),
+            ),
+            edges=(
+                Edge("claim.action.agent", action_id, "has_agent", role_id, "asserted", evidence),
+                Edge("claim.action.target", action_id, "has_target", target_id, "asserted", evidence),
+                Edge(
+                    "claim.should.uses",
+                    "should_evaluation",
+                    "uses_evaluator",
+                    "should_evaluator",
+                    "asserted",
+                    evidence,
+                ),
+                Edge(
+                    "claim.should.evaluates",
+                    "should_evaluation",
+                    "evaluates",
+                    action_id,
+                    "asserted",
+                    evidence,
+                ),
+                Edge(
+                    "claim.should.result",
+                    "should_evaluation",
+                    "yields",
+                    "positive_normative_evaluation",
+                    "asserted",
+                    evidence,
+                ),
+            ),
+            diagnostics=(
+                Diagnostic(
+                    "unresolved_normative_bearer",
+                    "Normative evaluation of the action does not assign an obligation bearer.",
+                    ("claim.should.evaluates",),
+                ),
+            ),
+        )
     def _parse_good_group(self, sentence: str) -> GraphIR | None:
         match = re.fullmatch(
             r"\s*(?P<evaluator>good)\s+(?P<group>[A-Za-z]+)\s+"
@@ -386,6 +522,42 @@ class SemanticCompiler:
             ),
         )
 
+    def _parse_good_group_action(self, sentence: str) -> GraphIR | None:
+        match = re.fullmatch(
+            r"\s*(?P<evaluator>good)\s+(?P<group>[A-Za-z]+)\s+"
+            r"(?P<predicate>set)\s+(?P<object>[A-Za-z][\w -]*?)[.!?]?\s*",
+            sentence,
+            re.IGNORECASE,
+        )
+        if not match:
+            return None
+        group = _singular(match.group("group"))
+        source_handle = f"good_{group}s"
+        object_id = _slug(match.group("object"))
+        action_id = f"{_slug(match.group('object'))}_setting_action"
+        evidence = (_source_evidence(sentence, match.span()),)
+        return GraphIR(
+            nodes=(
+                Node(source_handle, f"good {match.group('group').lower()}"),
+                Node(object_id, match.group("object").lower()),
+                Node(action_id, f"{match.group('object').lower()} setting action"),
+                Node("good_parent_evaluator", "good-parent evaluator"),
+                Node(f"{group}_configuration", f"{group} configuration"),
+                Node("parents_judged_good", "parents judged good"),
+            ),
+            edges=(
+                Edge(
+                    "claim.good_group_action",
+                    source_handle,
+                    "set",
+                    object_id,
+                    "asserted",
+                    evidence,
+                    (("modality", "generic"),),
+                ),
+            ),
+        )
+
     def _resolve(self, sentence: str, graph: GraphIR) -> GraphIR:
         labels = {node.label for node in graph.nodes}
         additions_nodes: list[Node] = []
@@ -410,6 +582,159 @@ class SemanticCompiler:
             )
 
         resolved = graph.with_items(nodes=tuple(additions_nodes), edges=tuple(additions_edges))
+        requirement_claims = [
+            edge for edge in graph.edges if edge.id == "claim.evaluated_category_requires"
+        ]
+        if requirement_claims:
+            claim = requirement_claims[0]
+            source = _source_evidence(sentence, (0, len(sentence)))
+            provenance = (
+                source,
+                Evidence("inference_rule", "evaluated_category_requirement_readings"),
+            )
+            category = next(
+                node for node in graph.nodes if node.id.endswith("_configuration")
+            )
+            evaluator = next(
+                node for node in graph.nodes if node.id.endswith("_evaluator")
+            )
+            evaluation_id = f"{category.id}_health_evaluation"
+            candidate_edges = (
+                Edge(
+                    "requirement.evaluator.uses",
+                    evaluation_id,
+                    "uses_evaluator",
+                    evaluator.id,
+                    "unresolved",
+                    provenance,
+                ),
+                Edge(
+                    "requirement.evaluator.evaluates",
+                    evaluation_id,
+                    "evaluates",
+                    category.id,
+                    "unresolved",
+                    provenance,
+                ),
+                Edge(
+                    "requirement.evaluator.criterion",
+                    evaluator.id,
+                    "sensitive_to",
+                    claim.target,
+                    "unresolved",
+                    provenance,
+                ),
+                Edge(
+                    "requirement.configuration.necessity",
+                    category.id,
+                    "requires",
+                    claim.target,
+                    "unresolved",
+                    provenance,
+                ),
+            )
+            branches = (
+                Branch(
+                    "requirement.evaluator_reading",
+                    "requirement.direct_readings",
+                    "evaluator criterion",
+                    (
+                        "requirement.evaluator.uses",
+                        "requirement.evaluator.evaluates",
+                        "requirement.evaluator.criterion",
+                    ),
+                    "one_or_more",
+                    "unresolved",
+                    provenance,
+                ),
+                Branch(
+                    "requirement.configuration_reading",
+                    "requirement.direct_readings",
+                    "configuration necessity",
+                    ("requirement.configuration.necessity",),
+                    "one_or_more",
+                    "unresolved",
+                    provenance,
+                ),
+            )
+            resolved = resolved.with_items(
+                nodes=(Node(evaluation_id, "relationship health evaluation"),),
+                edges=candidate_edges,
+                branches=branches,
+            )
+
+        good_action_claims = [
+            edge for edge in graph.edges if edge.id == "claim.good_group_action"
+        ]
+        if good_action_claims:
+            action_id = next(
+                node.id for node in graph.nodes if node.id.endswith("_setting_action")
+            )
+            source = _source_evidence(sentence, (0, len(sentence)))
+            provenance = (source, Evidence("inference_rule", "good_group_action_reading_split"))
+            candidate_edges = (
+                Edge(
+                    "good_parent.reading.uses",
+                    "good_parent_evaluation",
+                    "uses_evaluator",
+                    "good_parent_evaluator",
+                    "unresolved",
+                    provenance,
+                ),
+                Edge(
+                    "good_parent.reading.evaluates",
+                    "good_parent_evaluation",
+                    "evaluates",
+                    "parent_configuration",
+                    "unresolved",
+                    provenance,
+                ),
+                Edge(
+                    "good_parent.reading.normative",
+                    "good_parent_evaluator",
+                    "sensitive_to",
+                    action_id,
+                    "unresolved",
+                    provenance,
+                ),
+                Edge(
+                    "good_parent.reading.descriptive",
+                    "parents_judged_good",
+                    "tend_to_have",
+                    action_id,
+                    "unresolved",
+                    provenance,
+                ),
+            )
+            resolved = resolved.with_items(
+                nodes=(Node("good_parent_evaluation", "good parent evaluation"),),
+                edges=candidate_edges,
+                branches=(
+                    Branch(
+                        "good_parent.normative_branch",
+                        "good_parent.primary_readings",
+                        "normative evaluator criterion",
+                        (
+                            "good_parent.reading.uses",
+                            "good_parent.reading.evaluates",
+                            "good_parent.reading.normative",
+                        ),
+                        "exclusive",
+                        "unresolved",
+                        provenance,
+                    ),
+                    Branch(
+                        "good_parent.descriptive_branch",
+                        "good_parent.primary_readings",
+                        "descriptive generalization",
+                        ("good_parent.reading.descriptive",),
+                        "exclusive",
+                        "unresolved",
+                        provenance,
+                    ),
+                ),
+            )
+
         good_claims = [edge for edge in graph.edges if edge.id == "claim.good_group_knows"]
         if good_claims:
             claim = good_claims[0]
@@ -673,7 +998,15 @@ def render_projection(projection: Projection, sentence: str = "") -> str:
         for edge in ungrouped:
             lines.extend(_render_edge(edge, labels, "    "))
             lines.append(f"    [{_provenance_class(edge.provenance, edge.status)}]")
-    if not all_groups and not ungrouped:
+    unresolved_diagnostics = tuple(
+        diagnostic
+        for diagnostic in graph.diagnostics
+        if diagnostic.code.startswith("unresolved_")
+        and diagnostic.code != "unresolved_alternatives"
+    )
+    for diagnostic in unresolved_diagnostics:
+        lines.append(f"  - {diagnostic.message}")
+    if not all_groups and not ungrouped and not unresolved_diagnostics:
         lines.append("  none")
 
     lines.extend(("", "PROJECTION LOSS"))

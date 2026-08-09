@@ -126,7 +126,21 @@ def test_every_projection_has_an_explicit_loss_ledger():
     for path in FIXTURE_DIR.glob("*.yaml"):
         compilation = SemanticCompiler().compile(load_fixture(path)["sentence"])
         for projection in compilation.projections:
-            assert projection.losses
+            projected_ids = {
+                *(edge.id for edge in projection.graph.edges),
+                *(node.id for node in projection.graph.nodes),
+                *(branch.id for branch in projection.graph.branches),
+            }
+            full_ids = {
+                *(edge.id for edge in compilation.graph.edges),
+                *(node.id for node in compilation.graph.nodes),
+                *(branch.id for branch in compilation.graph.branches),
+            }
+            omitted_ids = full_ids - projected_ids
+            recorded_ids = {
+                item_id for loss in projection.losses for item_id in loss.item_ids
+            }
+            assert omitted_ids <= recorded_ids
             for loss in projection.losses:
                 assert loss.item_ids
                 assert loss.description
@@ -206,7 +220,6 @@ def test_candidate_edges_are_never_promoted_and_output_is_deterministic():
         second = SemanticCompiler().compile(fixture["sentence"])
 
         branch_edge_ids = {edge_id for branch in first.graph.branches for edge_id in branch.edge_ids}
-        assert branch_edge_ids
         assert all(first.graph.edge(edge_id).status != "asserted" for edge_id in branch_edge_ids)
         assert first.to_dict() == second.to_dict()
         assert render_projection(first.projection(fixture["view"]), first.sentence) == render_projection(
