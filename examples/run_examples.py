@@ -6,6 +6,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ontology import SemanticCompiler, render_projection
 
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+
 compiler = SemanticCompiler()
 examples = (
     ("I need belonging.", "factor"),
@@ -16,5 +20,5 @@ examples = (
 for sentence, view in examples:
     compilation = compiler.compile(sentence)
     print(sentence)
-    print(render_projection(compilation.projection(view)))
+    print(render_projection(compilation.projection(view), compilation.sentence))
     print()

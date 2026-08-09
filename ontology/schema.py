@@ -71,19 +71,23 @@ class Edge:
 @dataclass(frozen=True)
 class Branch:
     id: str
+    group_id: str
     label: str
     edge_ids: tuple[str, ...]
     mode: Literal["exclusive", "one_or_more"]
     status: BranchStatus
     provenance: tuple[Evidence, ...]
+    depth: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
+            "group_id": self.group_id,
             "label": self.label,
             "edge_ids": list(self.edge_ids),
             "mode": self.mode,
             "status": self.status,
+            "depth": self.depth,
             "provenance": [item.to_dict() for item in self.provenance],
         }
 
@@ -160,15 +164,21 @@ class CompilerState:
 class ProjectionLoss:
     action: Literal["omitted", "merged"]
     item_ids: tuple[str, ...]
+    description: str
+    semantic_role: str
     reason: str
-    safe_because: str
+    safe_for: str
+    unsafe_for: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "action": self.action,
             "item_ids": list(self.item_ids),
+            "description": self.description,
+            "semantic_role": self.semantic_role,
             "reason": self.reason,
-            "safe_because": self.safe_because,
+            "safe_for": self.safe_for,
+            "unsafe_for": self.unsafe_for,
         }
 
 
@@ -177,10 +187,12 @@ class Projection:
     name: str
     graph: GraphIR
     losses: tuple[ProjectionLoss, ...]
+    depth: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
+            "depth": self.depth,
             "graph": self.graph.to_dict(),
             "losses": [loss.to_dict() for loss in self.losses],
         }

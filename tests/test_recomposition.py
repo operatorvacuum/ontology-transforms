@@ -1,0 +1,251 @@
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from ontology import (
+    CandidateRecomposition,
+    EdgeRequirement,
+    Evidence,
+    GuardPredicate,
+    RecompositionGuard,
+    RecompositionOutcome,
+    SemanticCompiler,
+)
+
+
+def graph_for(sentence: str):
+    return SemanticCompiler().compile(sentence).graph
+
+
+def finding_codes(decision):
+    return {finding.predicate for finding in decision.falsification_findings}
+
+
+def test_accepts_fully_licensed_task_scoped_judgment_projection():
+    graph = graph_for("Harmony is important.")
+    operation = "report_asserted_judgment"
+    candidate = CandidateRecomposition(
+        id="important.asserted_judgment",
+        label="important",
+        operation=operation,
+        required_edges=(
+            EdgeRequirement("importance_evaluation", "uses_evaluator", "important_evaluator"),
+            EdgeRequirement("importance_evaluation", "evaluates", "harmony"),
+            EdgeRequirement("importance_evaluation", "yields", "positive_importance"),
+        ),
+        forbidden_if=(GuardPredicate.TURNS_JUDGMENT_INTRINSIC,),
+        omitted_dimensions=("harmony.resolution_branch", "harmony.suppression_branch"),
+        safe_for=(operation,),
+        unsafe_for=("select_harmony_implementation",),
+        provenance=(Evidence("inference_rule", "task_scoped_judgment_projection"),),
+    )
+
+    decision = RecompositionGuard().evaluate_candidate(graph, candidate, operation)
+
+    assert decision.outcome == RecompositionOutcome.ACCEPT
+    assert decision.candidate_id == candidate.id
+    assert set(decision.licensed_edge_ids) == {
+        "importance.uses",
+        "importance.target",
+        "importance.result",
+    }
+    assert not decision.falsification_findings
+
+
+def test_rejects_implementation_promoted_to_handle_definition():
+    graph = graph_for("Harmony is important.")
+    operation = "summarize_harmony"
+    candidate = CandidateRecomposition(
+        id="harmony.as_suppression",
+        label="harmony",
+        operation=operation,
+        required_edges=(
+            EdgeRequirement("harmony", "implemented_by", "conflict_suppression"),
+            EdgeRequirement(
+                "harmony", "treated_as_equivalent_to", "conflict_suppression"
+            ),
+        ),
+        forbidden_if=(
+            GuardPredicate.INVENTS_EQUIVALENCE,
+            GuardPredicate.PROMOTES_IMPLEMENTATION,
+        ),
+        unresolved_blockers=("harmony.suppression_branch",),
+        omitted_dimensions=("harmony.resolution_branch",),
+        safe_for=(),
+        unsafe_for=(operation,),
+    )
+
+    decision = RecompositionGuard().evaluate_candidate(graph, candidate, operation)
+    codes = finding_codes(decision)
+
+    assert decision.outcome == RecompositionOutcome.REJECT
+    assert GuardPredicate.REQUIRED_EDGE_UNLICENSED in codes
+    assert GuardPredicate.INVENTS_EQUIVALENCE in codes
+    assert GuardPredicate.PROMOTES_IMPLEMENTATION in codes
+    assert GuardPredicate.UNRESOLVED_BLOCKER in codes
+    assert GuardPredicate.DROPS_OPERATION_RELEVANT_DIMENSION in codes
+
+
+def test_retains_high_dimensional_belonging_when_no_candidate_is_safe():
+    graph = graph_for("I need belonging.")
+    operation = "choose_relational_configuration"
+    candidate = CandidateRecomposition(
+        id="belonging.original_handle",
+        label="belonging",
+        operation=operation,
+        required_edges=(EdgeRequirement("speaker", "needs", "belonging"),),
+        forbidden_if=(GuardPredicate.MERGES_UNRESOLVED_BRANCHES,),
+        unresolved_blockers=("belonging.social", "belonging.place"),
+        omitted_dimensions=("belonging.social", "belonging.place"),
+        safe_for=("repeat_source_wording",),
+        unsafe_for=(operation,),
+    )
+
+    rejected = RecompositionGuard().evaluate_candidate(graph, candidate, operation)
+    decision = RecompositionGuard().decide(graph, (candidate,), operation)
+
+    assert rejected.outcome == RecompositionOutcome.REJECT
+    assert decision.outcome == RecompositionOutcome.RETAIN_HIGH_DIMENSIONAL
+    assert decision.candidate_id is None
+    assert decision.retained_edge_ids == tuple(edge.id for edge in graph.edges)
+    assert GuardPredicate.UNRESOLVED_BLOCKER in finding_codes(decision)
+
+
+def test_falsifier_rejects_causal_strengthening_and_intrinsic_judgment():
+    harmony = graph_for("Harmony is important.")
+    cause_operation = "infer_cause"
+    cause_candidate = CandidateRecomposition(
+        id="suppression.causes_signal_loss",
+        label="conflict suppression causes signal loss",
+        operation=cause_operation,
+        required_edges=(
+            EdgeRequirement("conflict_suppression", "causes", "signal_preservation"),
+        ),
+        forbidden_if=(
+            GuardPredicate.STRENGTHENS_RELATION,
+            GuardPredicate.ADDS_SENSITIVE_RELATION,
+        ),
+        safe_for=(cause_operation,),
+    )
+    cause_decision = RecompositionGuard().evaluate_candidate(
+        harmony, cause_candidate, cause_operation
+    )
+    assert GuardPredicate.STRENGTHENS_RELATION in finding_codes(cause_decision)
+    assert GuardPredicate.ADDS_SENSITIVE_RELATION in finding_codes(cause_decision)
+
+    property_operation = "describe_intrinsic_property"
+    property_candidate = CandidateRecomposition(
+        id="harmony.intrinsically_important",
+        label="intrinsically important harmony",
+        operation=property_operation,
+        required_edges=(
+            EdgeRequirement("harmony", "has_property", "positive_importance"),
+        ),
+        forbidden_if=(GuardPredicate.TURNS_JUDGMENT_INTRINSIC,),
+        safe_for=(property_operation,),
+    )
+    property_decision = RecompositionGuard().evaluate_candidate(
+        harmony, property_candidate, property_operation
+    )
+    assert GuardPredicate.TURNS_JUDGMENT_INTRINSIC in finding_codes(property_decision)
+
+
+def test_falsifier_detects_merge_of_exclusive_good_engineer_readings():
+    graph = graph_for("Good engineers know heap internals.")
+    operation = "compress_good_engineer_reading"
+    candidate = CandidateRecomposition(
+        id="good.combined_reading",
+        label="heap knowledge defines and predicts good engineers",
+        operation=operation,
+        required_edges=(
+            EdgeRequirement("good_evaluator", "sensitive_to", "heap_internals"),
+            EdgeRequirement("good_engineer", "tend_to_have", "heap_internals"),
+        ),
+        forbidden_if=(GuardPredicate.MERGES_UNRESOLVED_BRANCHES,),
+        safe_for=(operation,),
+    )
+
+    decision = RecompositionGuard().evaluate_candidate(graph, candidate, operation)
+
+    assert decision.outcome == RecompositionOutcome.REJECT
+    assert GuardPredicate.MERGES_UNRESOLVED_BRANCHES in finding_codes(decision)
+
+
+def test_falsifier_does_not_drop_direction_qualifiers():
+    graph = graph_for("Harmony is important.")
+    operation = "describe_suppression_effect"
+    candidate = CandidateRecomposition(
+        id="suppression.unspecified_effect",
+        label="conflict suppression affects signal preservation",
+        operation=operation,
+        required_edges=(
+            EdgeRequirement("conflict_suppression", "affects", "signal_preservation"),
+        ),
+        forbidden_if=(GuardPredicate.DROPS_QUALIFIER,),
+        safe_for=(operation,),
+    )
+
+    decision = RecompositionGuard().evaluate_candidate(graph, candidate, operation)
+
+    assert decision.outcome == RecompositionOutcome.REJECT
+    assert GuardPredicate.DROPS_QUALIFIER in finding_codes(decision)
+
+
+def test_recomposition_records_serialize_stable_predicate_codes():
+    candidate = CandidateRecomposition(
+        id="candidate",
+        label="label",
+        operation="operation",
+        required_edges=(EdgeRequirement("a", "relation", "b"),),
+        forbidden_if=(GuardPredicate.INVENTS_EQUIVALENCE,),
+        unresolved_blockers=("branch.a",),
+    )
+
+    payload = candidate.to_dict()
+    assert payload["forbidden_if"] == ["invents_equivalence"]
+    assert payload["unresolved_blockers"] == ["branch.a"]
+
+
+def test_shared_edge_does_not_count_as_merging_branches_and_unknown_ids_fail():
+    graph = graph_for("I need belonging.")
+    shared_operation = "name_shared_candidate"
+    shared_candidate = CandidateRecomposition(
+        id="belonging.recognition_only",
+        label="recognition",
+        operation=shared_operation,
+        required_edges=(EdgeRequirement("belonging", "factors_into", "recognition"),),
+        forbidden_if=(GuardPredicate.MERGES_UNRESOLVED_BRANCHES,),
+        safe_for=(shared_operation,),
+    )
+    shared_decision = RecompositionGuard().evaluate_candidate(
+        graph, shared_candidate, shared_operation
+    )
+    assert GuardPredicate.MERGES_UNRESOLVED_BRANCHES not in finding_codes(shared_decision)
+    assert GuardPredicate.REQUIRED_EDGE_UNLICENSED in finding_codes(shared_decision)
+
+    unknown_operation = "unknown_reference_check"
+    unknown_candidate = CandidateRecomposition(
+        id="unknown.items",
+        label="unknown",
+        operation=unknown_operation,
+        required_edges=(EdgeRequirement("speaker", "needs", "belonging"),),
+        unresolved_blockers=("missing.branch",),
+        omitted_dimensions=("missing.dimension",),
+        safe_for=(unknown_operation,),
+    )
+    unknown_decision = RecompositionGuard().evaluate_candidate(
+        graph, unknown_candidate, unknown_operation
+    )
+    assert GuardPredicate.UNKNOWN_ITEM_REFERENCE in finding_codes(unknown_decision)
+
+
+if __name__ == "__main__":
+    test_accepts_fully_licensed_task_scoped_judgment_projection()
+    test_rejects_implementation_promoted_to_handle_definition()
+    test_retains_high_dimensional_belonging_when_no_candidate_is_safe()
+    test_falsifier_rejects_causal_strengthening_and_intrinsic_judgment()
+    test_falsifier_detects_merge_of_exclusive_good_engineer_readings()
+    test_falsifier_does_not_drop_direction_qualifiers()
+    test_recomposition_records_serialize_stable_predicate_codes()
+    test_shared_edge_does_not_count_as_merging_branches_and_unknown_ids_fail()

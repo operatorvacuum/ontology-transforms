@@ -15,9 +15,11 @@ class EdgeTemplate:
 @dataclass(frozen=True)
 class BranchTemplate:
     id: str
+    group_id: str
     label: str
     edge_ids: tuple[str, ...]
     mode: str = "one_or_more"
+    depth: int = 0
 
 
 @dataclass(frozen=True)
@@ -47,15 +49,40 @@ VERTICAL_SLICE_FRAGMENTS = (
         edges=(
             EdgeTemplate("belonging.recognition", "$trigger", "factors_into", "recognition"),
             EdgeTemplate("belonging.access", "$trigger", "factors_into", "access"),
-            EdgeTemplate("belonging.recurrence", "$trigger", "factors_into", "recurrence"),
-            EdgeTemplate("belonging.identity", "$trigger", "factors_into", "identity_coupling"),
-            EdgeTemplate("belonging.obligation", "$trigger", "factors_into", "obligation"),
-            EdgeTemplate("belonging.exit_cost", "$trigger", "factors_into", "exit_cost"),
+            EdgeTemplate(
+                "belonging.recurrence",
+                "$trigger",
+                "factors_into",
+                "recurrence",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "belonging.identity",
+                "$trigger",
+                "factors_into",
+                "identity_coupling",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "belonging.obligation",
+                "$trigger",
+                "factors_into",
+                "obligation",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "belonging.exit_cost",
+                "$trigger",
+                "factors_into",
+                "exit_cost",
+                (("necessity", "optional"),),
+            ),
             EdgeTemplate("belonging.place", "$trigger", "factors_into", "place_attachment"),
         ),
         branches=(
             BranchTemplate(
                 "belonging.social",
+                "belonging.configurations",
                 "social-recognition configuration",
                 (
                     "belonging.recognition",
@@ -68,6 +95,7 @@ VERTICAL_SLICE_FRAGMENTS = (
             ),
             BranchTemplate(
                 "belonging.place",
+                "belonging.configurations",
                 "place-attachment configuration",
                 ("belonging.recognition", "belonging.place"),
             ),
@@ -110,11 +138,13 @@ VERTICAL_SLICE_FRAGMENTS = (
         branches=(
             BranchTemplate(
                 "harmony.resolution_branch",
+                "harmony.implementations",
                 "conflict resolution",
                 ("harmony.resolution", "resolution.signal"),
             ),
             BranchTemplate(
                 "harmony.suppression_branch",
+                "harmony.implementations",
                 "conflict suppression",
                 ("harmony.suppression", "suppression.signal", "suppression.dissent"),
             ),
@@ -122,7 +152,7 @@ VERTICAL_SLICE_FRAGMENTS = (
     ),
     Fragment(
         id="good_engineer.sensitivities.v1",
-        trigger="good engineer",
+        trigger="good engineers",
         node_labels=(
             ("judgment", "judgment"),
             ("debugging", "debugging"),
@@ -131,15 +161,46 @@ VERTICAL_SLICE_FRAGMENTS = (
             ("curiosity", "curiosity"),
         ),
         edges=(
-            EdgeTemplate("good.sensitivity.judgment", "good_evaluator", "sensitive_to", "judgment"),
-            EdgeTemplate("good.sensitivity.debugging", "good_evaluator", "sensitive_to", "debugging"),
-            EdgeTemplate("good.sensitivity.system", "good_evaluator", "sensitive_to", "system_modeling"),
-            EdgeTemplate("good.sensitivity.ai", "good_evaluator", "sensitive_to", "ai_navigation"),
-            EdgeTemplate("good.sensitivity.curiosity", "good_evaluator", "sensitive_to", "curiosity"),
+            EdgeTemplate(
+                "good.sensitivity.judgment",
+                "good_evaluator",
+                "sensitive_to",
+                "judgment",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "good.sensitivity.debugging",
+                "good_evaluator",
+                "sensitive_to",
+                "debugging",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "good.sensitivity.system",
+                "good_evaluator",
+                "sensitive_to",
+                "system_modeling",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "good.sensitivity.ai",
+                "good_evaluator",
+                "sensitive_to",
+                "ai_navigation",
+                (("necessity", "optional"),),
+            ),
+            EdgeTemplate(
+                "good.sensitivity.curiosity",
+                "good_evaluator",
+                "sensitive_to",
+                "curiosity",
+                (("necessity", "optional"),),
+            ),
         ),
         branches=(
             BranchTemplate(
                 "good.broader_model",
+                "good.recursive_candidate_expansion",
                 "broader evaluator sensitivities",
                 (
                     "good.sensitivity.judgment",
@@ -148,6 +209,7 @@ VERTICAL_SLICE_FRAGMENTS = (
                     "good.sensitivity.ai",
                     "good.sensitivity.curiosity",
                 ),
+                depth=1,
             ),
         ),
     ),

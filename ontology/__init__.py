@@ -1,4 +1,15 @@
 from ontology.compiler import PROJECTION_SAFETY_INVARIANT, SemanticCompiler, render_projection
+from ontology.recomposition import (
+    CandidateRecomposition,
+    EdgeRequirement,
+    FalsificationFinding,
+    GuardPredicate,
+    ItemId,
+    OperationId,
+    ProjectionDecision,
+    RecompositionGuard,
+    RecompositionOutcome,
+)
 from ontology.schema import (
     Branch,
     Compilation,
@@ -14,16 +25,25 @@ from ontology.schema import (
 
 __all__ = [
     "Branch",
+    "CandidateRecomposition",
     "Compilation",
     "CompilerState",
     "Diagnostic",
     "Edge",
+    "EdgeRequirement",
     "Evidence",
     "GraphIR",
+    "GuardPredicate",
+    "ItemId",
     "Node",
+    "OperationId",
     "PROJECTION_SAFETY_INVARIANT",
     "Projection",
+    "ProjectionDecision",
     "ProjectionLoss",
+    "RecompositionGuard",
+    "RecompositionOutcome",
     "SemanticCompiler",
+    "FalsificationFinding",
     "render_projection",
 ]

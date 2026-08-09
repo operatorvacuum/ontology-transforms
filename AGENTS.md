@@ -10,6 +10,8 @@ Working rules:
 - Distinguish source text, catalog fragments, inference rules, and model hypotheses.
 - Do not globally normalize a word to one decomposition.
 - Every projection records what it omitted or merged and why that was safe.
+- Treat factorization as fundamental and recomposition as an optional task-scoped projection.
+- Retain the high-dimensional graph when no lexical compression is semantically safe.
 - Add regression tests for relational behavior, not exact prose or concept definitions.
 - Put reusable sentences in `examples/fixtures/*.yaml`.
 - Keep implementation small and inspectable.
