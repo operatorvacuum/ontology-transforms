@@ -10,11 +10,15 @@ This repository is a small compiler experiment for recovering candidate relation
 structure from compressed natural-language handles. It does not assign words a
 single canonical decomposition.
 
-The current implementation is intentionally one vertical slice for:
+The current implementation is intentionally a seven-fixture vertical slice for:
 
 - `I need belonging.`
 - `Harmony is important.`
 - `Good engineers know heap internals.`
+- `Healthy relationships require honesty.`
+- `A mentor should guide you.`
+- `Respect is important.`
+- `Good parents set boundaries.`
 
 It is not yet a general natural-language parser or a migrated ontology dataset.
 
@@ -253,13 +257,16 @@ fixture-scoped proposals and retain the graph when no compact candidate is safe.
 - `ontology/catalog.py`: contextual candidate fragments for the current fixtures.
 - `ontology/recomposition.py`: optional candidate records and deterministic falsifier.
 - `ontology/recomposition_cases.py`: fixture-scoped proposals used to exercise the guard.
-- `examples/fixtures/*.yaml`: the three approved sentence fixtures.
+- `examples/fixtures/*.yaml`: the seven current sentence fixtures.
 - `tests/test_semantic_compiler.py`: relational behavior regressions.
+- `tests/test_adversarial_fixtures.py`: adversarial semantic-cast regressions.
+- `tests/test_recomposition.py`: deterministic recomposition regressions.
 
 ## Tests
 
 ```powershell
 python tests/test_semantic_compiler.py
+python tests/test_adversarial_fixtures.py
 python tests/test_recomposition.py
 ```
 
