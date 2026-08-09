@@ -1,7 +1,7 @@
 [project]
-name = "operator-ontology"
-version = "0.1.0"
-description = "Transform language into operators, complements, assumptions, and implementations."
+name = "semantic-factorization-engine"
+version = "0.2.0"
+description = "Compile language into provenance-bearing candidate relational graphs."
 requires-python = ">=3.10"
 dependencies = []
 

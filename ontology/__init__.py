@@ -1,20 +1,29 @@
+from ontology.compiler import PROJECTION_SAFETY_INVARIANT, SemanticCompiler, render_projection
 from ontology.schema import (
-    CollapsedVariable,
-    MatchEvidence,
-    OntologyEntry,
-    OperatorGraph,
-    TransformResult,
+    Branch,
+    Compilation,
+    CompilerState,
+    Diagnostic,
+    Edge,
+    Evidence,
+    GraphIR,
+    Node,
+    Projection,
+    ProjectionLoss,
 )
-from ontology.store import OntologyStore, load_default_ontology
-from ontology.transforms import TransformAPI
 
 __all__ = [
-    "MatchEvidence",
-    "CollapsedVariable",
-    "OntologyEntry",
-    "OntologyStore",
-    "OperatorGraph",
-    "TransformAPI",
-    "TransformResult",
-    "load_default_ontology",
+    "Branch",
+    "Compilation",
+    "CompilerState",
+    "Diagnostic",
+    "Edge",
+    "Evidence",
+    "GraphIR",
+    "Node",
+    "PROJECTION_SAFETY_INVARIANT",
+    "Projection",
+    "ProjectionLoss",
+    "SemanticCompiler",
+    "render_projection",
 ]

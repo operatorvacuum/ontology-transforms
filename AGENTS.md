@@ -1,29 +1,17 @@
 # Agent Guidance
 
-Treat this as a transform engine, not a philosophy document.
-
-Use the README as the product spec. Keep outputs structured, boring, and stable:
-
-```json
-{
-  "sentence": "...",
-  "objects": [],
-  "operators": [],
-  "compressions": [],
-  "collapsed_variables": [],
-  "hidden_variables": [],
-  "complements": [],
-  "competing_implementations": [],
-  "warnings": []
-}
-```
+Treat this repository as a semantic compiler experiment, not a taxonomy.
 
 Working rules:
 
-- Objects are inputs to transforms, not final explanations.
-- Do not make concepts sacred.
-- Add regression tests for behavior, not tests that define concepts.
-- Put reusable sentence examples in `examples/fixtures/*.yaml`.
+- Keep node taxonomy weak; prefer semantic roles expressed by edges.
+- Preserve unresolved candidate branches.
+- Put provenance on every inferred edge and branch.
+- Distinguish source text, catalog fragments, inference rules, and model hypotheses.
+- Do not globally normalize a word to one decomposition.
+- Every projection records what it omitted or merged and why that was safe.
+- Add regression tests for relational behavior, not exact prose or concept definitions.
+- Put reusable sentences in `examples/fixtures/*.yaml`.
 - Keep implementation small and inspectable.
-- Prefer dependency-free code unless a dependency removes real complexity.
+- Do not expand the dataset beyond proven vertical slices.
 - Run tests after each meaningful change.

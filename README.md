@@ -1,146 +1,102 @@
-# Ontology Transform Engine
+# Semantic Factorization Engine
 
-This engine treats natural-language statements as compressed operators and
-attempts to recover the hidden variables, assumptions, complements, and
-competing implementations that were collapsed during abstraction.
+This repository is a small compiler experiment for recovering candidate relational
+structure from compressed natural-language handles. It does not assign words a
+single canonical decomposition.
 
-Most statements compress many variables into a single object, such as
-`harmony`, `belonging`, `identity`, or `good engineer`. The Ontology Transform
-Engine reconstructs the hidden operator graph behind the statement: what
-variables were collapsed, what assumptions became implicit, what competing
-implementations exist, and what information disappeared during compression.
+The current implementation is intentionally one vertical slice for:
 
-The core flow is:
+- `I need belonging.`
+- `Harmony is important.`
+- `Good engineers know heap internals.`
+
+It is not yet a general natural-language parser or a migrated ontology dataset.
+
+## Design invariants
+
+- Nodes have local identity and labels, not strong global semantic classes.
+- Semantic roles come primarily from typed edges.
+- Every inferred edge and unresolved branch carries source and derivation provenance.
+- Candidate catalog fragments are contextual hypotheses, not dictionary definitions.
+- Surface equality never merges nodes automatically.
+- Evaluators remain explicit applications over configurations or handles.
+- Alternatives remain unresolved until context or an operation justifies selection.
+- Unsupported inferred edges are marked rather than promoted or silently discarded.
+- **Every projection records what it omitted or merged and why that was safe.**
+
+## Pipeline
 
 ```text
-claim
--> find what got compressed away
--> recover lost degrees of freedom
+text + context
+-> parse source claims
+-> resolve local fragment candidates
+-> instantiate candidate factor graphs
+-> validate provenance and unsupported inference
+-> project for a specific operation with a loss ledger
+-> render a human view or emit machine IR
 ```
 
-Structured output stays boring:
+Every compilation exposes immutable `parsed`, `resolved`, `factorized`, and
+`validated` graph states.
 
-```json
-{
-  "sentence": "...",
-  "objects": [],
-  "operators": [],
-  "compressions": [],
-  "collapsed_variables": [],
-  "hidden_variables": [],
-  "complements": [],
-  "competing_implementations": [],
-  "warnings": []
-}
-```
+## Minimal machine IR
 
-Objects are inputs to transforms, not final explanations. Ontology is the
-substrate; compression recovery is the purpose.
+The machine representation contains:
 
-## Quick Start
+- nodes: local `id` and `label` only
+- typed, status-bearing edges
+- unresolved branch groups
+- first-class provenance
+- diagnostics
+- operation-specific projections with explicit loss records
 
-Run commands from the repo root:
+Provenance distinguishes:
+
+- `source_text`
+- `catalog_fragment`
+- `inference_rule`
+- `model_hypothesis`
+
+The last kind is supported by the IR but is not currently emitted by the vertical
+slice.
+
+## Human views
 
 ```powershell
-python -m ontology.cli expand "I need belonging."
-python -m ontology.cli expand "Good engineers know heap internals."
-python -m ontology.cli collapsed "Harmony is important."
-python -m ontology.cli graph "I am a teacher."
-python examples/run_examples.py
+python -m ontology.cli "I need belonging." --view factor
+python -m ontology.cli "Harmony is important." --view implementation
+python -m ontology.cli "Good engineers know heap internals." --view factor
 ```
 
-## Examples
-
-The engine does not decide whether a statement is good or bad. It detects when a
-statement has collapsed a multidimensional process into a single object, then
-returns the missing dimensions.
-
-### Harmony
+Use `--ir` to inspect all machine states and projections:
 
 ```powershell
-python -m ontology.cli expand "Harmony is important."
+python -m ontology.cli "Harmony is important." --ir
 ```
-
-May recover:
-
-- collapsed variables: `harmony = truth`, `harmony = health`
-- hidden variables: `conflict suppression`, `conflict resolution`, `power asymmetry`, `private dissent`
-- missing complements: `signal_preservation`, `exit`, `adaptation`
-
-### Good Engineer
-
-```powershell
-python -m ontology.cli expand "Good engineers know heap internals."
-```
-
-May recover:
-
-- collapsed variable: `trivia_knowledge = engineering_value`
-- hidden variables: `debugging`, `judgment`, `system_modeling`, `adaptation`, `AI_navigation`, `curiosity`
-- missing complements: `signal_preservation`, `adaptation`
-
-### Identity
-
-```powershell
-python -m ontology.cli expand "I am a teacher."
-```
-
-May recover:
-
-- collapsed variable: `identity = behavior`
-- hidden variables: `role`, `frequency`, `context`, `obligation`, `history`, `competence`
-- competing implementations: `role`, `current preference`, `relationship-specific behavior`, `history`, `chosen commitment`
 
 ## API
 
 ```python
-from ontology import TransformAPI, load_default_ontology
+from ontology import SemanticCompiler, render_projection
 
-api = TransformAPI(load_default_ontology())
-payload = api.expand("Good engineers know heap internals.").to_dict()
+compilation = SemanticCompiler().compile("I need belonging.")
+factorized = compilation.state("factorized").graph
+factor_view = compilation.projection("factor")
+print(render_projection(factor_view))
 ```
 
-Core methods:
+## Project shape
 
-- `expand(sentence)`
-- `detect_collapsed_variables(sentence)`
-- `find_compressions(sentence)`
-- `find_hidden_assumptions(sentence)`
-- `find_complements(sentence)`
-- `find_competing_implementations(sentence)`
-- `decompose_identity(sentence)`
-- `decompose_belonging(sentence)`
-- `decompose_harmony(sentence)`
-- `extract_operator_graph(sentence)`
+- `ontology/schema.py`: immutable graph IR, provenance, states, and projections.
+- `ontology/compiler.py`: parser, resolver, factorizer, validator, projector, renderer.
+- `ontology/catalog.py`: only the three contextual candidate fragments.
+- `examples/fixtures/*.yaml`: the three approved sentence fixtures.
+- `tests/test_semantic_compiler.py`: relational behavior regressions.
 
-## Project Shape
-
-- `ontology/schema.py`: typed records and boring transform output.
-- `ontology/store.py`: dependency-free loader for the ontology data subset.
-- `ontology/transforms.py`: transform engine and collapse rules.
-- `ontology/data/core.yaml`: seed operators, objects, complements, and transforms.
-- `examples/fixtures/*.yaml`: regression fixtures for sentence behavior.
-- `tests/test_transform_regressions.py`: behavior tests, not concept definitions.
-
-## Regression Fixtures
-
-Fixtures live in `examples/fixtures/` and declare the minimum expected output for
-a sentence. Add a fixture when a sentence exposes a reusable decomposition shape.
-
-Current fixtures:
-
-- `trivia_hiring.yaml`
-- `lake_walk_frequency.yaml`
-- `college_best_years.yaml`
-- `silence_as_loaded_object.yaml`
-- `harmony_truth_collapse.yaml`
-- `identity_graph_compression.yaml`
-
-## Testing
-
-This repo has no required runtime dependencies. If `pytest` is unavailable, run
-the regression file directly:
+## Tests
 
 ```powershell
-python tests/test_transform_regressions.py
+python tests/test_semantic_compiler.py
 ```
+
+The tests assert graph relationships and invariants, not exact human prose.

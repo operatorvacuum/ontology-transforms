@@ -1,18 +1,20 @@
 from pathlib import Path
-import json
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from ontology import TransformAPI, load_default_ontology
+from ontology import SemanticCompiler, render_projection
 
 
-api = TransformAPI(load_default_ontology())
+compiler = SemanticCompiler()
+examples = (
+    ("I need belonging.", "factor"),
+    ("Harmony is important.", "implementation"),
+    ("Good engineers know heap internals.", "factor"),
+)
 
-for sentence in [
-    "I need belonging.",
-    "Harmony is important.",
-    "I am X.",
-    "Harmony is important with signal preservation.",
-]:
-    print(json.dumps(api.expand(sentence).to_dict(), indent=2))
+for sentence, view in examples:
+    compilation = compiler.compile(sentence)
+    print(sentence)
+    print(render_projection(compilation.projection(view)))
+    print()
